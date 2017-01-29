@@ -99,7 +99,8 @@ public class MainActivity extends AppCompatActivity implements
     private static final int REQUEST_INVITE = 1;
     private static final int RC_PHOTO_PICKER = 2;
     private static final int REQUEST_WRITE_PERMISSION = 3;
-    public static final int DEFAULT_MSG_LENGTH_LIMIT = 140;
+    public static final int DEFAULT_MSG_LENGTH_LIMIT = 10;
+    private static final String ARCANE_MSG_LENGTH_KEY = "arcane_msg_length";
     public static final String ANONYMOUS = "anonymous";
     private static final String MESSAGE_SENT_EVENT = "message_sent";
     private static final String MESSAGE_URL = "http://arcanechat.firebase.google.com/message/";
@@ -137,6 +138,7 @@ public class MainActivity extends AppCompatActivity implements
         mFirebaseUser = mFirebaseAuth.getCurrentUser();
         mFirebaseStorage = FirebaseStorage.getInstance();
         mChatPhotosStorageReference = mFirebaseStorage.getReference().child("chat_photos");
+        mFirebaseRemoteConfig = FirebaseRemoteConfig.getInstance();
 
         if (mFirebaseUser == null) {
             // Not signed in, launch the Sign In activity
@@ -247,7 +249,7 @@ public class MainActivity extends AppCompatActivity implements
         // Define default config values. Defaults are used when fetched config values are not
         // available. Eg: if an error occurred fetching values from the server.
         Map<String, Object> defaultConfigMap = new HashMap<>();
-        defaultConfigMap.put("friendly_msg_length", 10L);
+        defaultConfigMap.put(ARCANE_MSG_LENGTH_KEY, DEFAULT_MSG_LENGTH_LIMIT);
 
         // Apply config settings and default values.
         mFirebaseRemoteConfig.setConfigSettings(firebaseRemoteConfigSettings);
@@ -308,6 +310,7 @@ public class MainActivity extends AppCompatActivity implements
                 mFirebaseAnalytics.logEvent(MESSAGE_SENT_EVENT, null);
             }
         });
+
     }
 
     @Override
@@ -491,9 +494,9 @@ public class MainActivity extends AppCompatActivity implements
      * cached values.
      */
     private void applyRetrievedLengthLimit() {
-        Long friendly_msg_length = mFirebaseRemoteConfig.getLong("friendly_msg_length");
-        mMessageEditText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(friendly_msg_length.intValue())});
-        Log.d(TAG, "FML is: " + friendly_msg_length);
+        Long arcane_msg_length = mFirebaseRemoteConfig.getLong(ARCANE_MSG_LENGTH_KEY);
+        mMessageEditText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(arcane_msg_length.intValue())});
+        Log.d(TAG, "FML is: " + arcane_msg_length);
     }
 
     @Override
