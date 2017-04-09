@@ -34,6 +34,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -178,7 +179,7 @@ public class MainActivity extends AppCompatActivity implements
             }
 
             @Override
-            protected void populateViewHolder(MessageViewHolder viewHolder, FriendlyMessage friendlyMessage, int position) {
+            protected void populateViewHolder(final MessageViewHolder viewHolder, FriendlyMessage friendlyMessage, final int position) {
                 mProgressBar.setVisibility(ProgressBar.INVISIBLE);
                 viewHolder.messengerTextView.setText(friendlyMessage.getName());
                 if (friendlyMessage.getPhotoUrl() == null) {
@@ -202,6 +203,30 @@ public class MainActivity extends AppCompatActivity implements
                     viewHolder.photoImageView.setVisibility(View.GONE);
                     viewHolder.messageTextView.setText(friendlyMessage.getText());
                 }
+
+                final String friendlyMessageText = friendlyMessage.getText();
+
+                viewHolder.itemView.setOnTouchListener(new View.OnTouchListener() {
+
+                    @Override
+                    public boolean onTouch(View v, MotionEvent event) {
+                        if (event.getAction() == MotionEvent.ACTION_DOWN ) {
+                            // This didn't work. Why?
+                            // getItem(position).setText(decrypt(friendlyMessageText, "SAI"));
+                            // notifyItemChanged(position);
+                            viewHolder.messageTextView.setText(decrypt(friendlyMessageText, "SAI"));
+                            return true;
+                        } else if (event.getAction() == MotionEvent.ACTION_MOVE ) {
+                            viewHolder.messageTextView.setText(friendlyMessageText);
+                            return true;
+                        }else if (event.getAction() == MotionEvent.ACTION_UP ) {
+                            viewHolder.messageTextView.setText(friendlyMessageText);
+                            return true;
+                        }
+
+                        return false;
+                    }
+                });
 
                 // write this message to the on-device index
                 FirebaseAppIndex.getInstance().update(getMessageIndexable(friendlyMessage));
@@ -243,8 +268,8 @@ public class MainActivity extends AppCompatActivity implements
         // Define Firebase Remote Config Settings.
         FirebaseRemoteConfigSettings firebaseRemoteConfigSettings =
                 new FirebaseRemoteConfigSettings.Builder()
-                .setDeveloperModeEnabled(true)
-                .build();
+                        .setDeveloperModeEnabled(true)
+                        .build();
 
         // Define default config values. Defaults are used when fetched config values are not
         // available. Eg: if an error occurred fetching values from the server.
@@ -303,7 +328,8 @@ public class MainActivity extends AppCompatActivity implements
         mSendButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                FriendlyMessage friendlyMessage = new FriendlyMessage(mMessageEditText.getText().toString(), mUsername,
+                String encryptedMessage =  encrypt(mMessageEditText.getText().toString(), "SAI");
+                FriendlyMessage friendlyMessage = new FriendlyMessage(encryptedMessage, mUsername,
                         mPhotoUrl);
                 mFirebaseDatabaseReference.child(MESSAGES_CHILD).push().setValue(friendlyMessage);
                 mMessageEditText.setText("");
@@ -311,6 +337,57 @@ public class MainActivity extends AppCompatActivity implements
             }
         });
 
+    }
+
+    /**
+     * Encrypt the text using the vigenere cypher
+     * @param text Message you want to encrypt
+     * @param key A string of arbitrary length
+     * @return Encrypted message
+     */
+    public static String encrypt(String text, final String key)
+    {
+        String res = "";
+        for (int i = 0, j = 0; i < text.length(); i++)
+        {
+            char c = text.charAt(i);
+
+            if (c >= 'a' && c <= 'z')
+                res += (char) ((c + key.charAt(j) - 2 * 'a') % 26 + 'a');
+            else if (c >= 'A' && c <= 'Z')
+                res += (char) ((c + key.charAt(j) - 2 * 'A') % 26 + 'A');
+            else
+                res += c;
+
+            j = ++j % key.length();
+        }
+        return res;
+    }
+
+    /**
+     * Decrypt the message using vigenere cypher
+     * @param text Message you want to decrypt
+     * @param key The string used to encrypt the original message
+     * @return Decrypted message
+     */
+    public static String decrypt(String text, final String key)
+    {
+        String res = "";
+        if(text == null) return res;
+        for (int i = 0, j = 0; i < text.length(); i++)
+        {
+            char c = text.charAt(i);
+
+            if (c >= 'a' && c <= 'z')
+                res += (char) ((c - key.charAt(j) + 26) % 26 + 'a');
+            else if (c >= 'A' && c <= 'Z')
+                res += (char) ((c - key.charAt(j) + 26) % 26 + 'A');
+            else
+                res += c;
+
+            j = ++j % key.length();
+        }
+        return res;
     }
 
     @Override
@@ -480,7 +557,7 @@ public class MainActivity extends AppCompatActivity implements
             photoRef.putFile(selectedImageUri).addOnSuccessListener(this, new OnSuccessListener<UploadTask.TaskSnapshot>() {
                 @Override
                 public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
-                    Uri downloadUrl = taskSnapshot.getDownloadUrl();
+                    @SuppressWarnings("VisibleForTests") Uri downloadUrl = taskSnapshot.getDownloadUrl();
                     FriendlyMessage friendlyMessage = new FriendlyMessage(null, mUsername, mPhotoUrl, downloadUrl.toString());
                     mFirebaseDatabaseReference.child(MESSAGES_CHILD).push().setValue(friendlyMessage);
                 }
